@@ -3,7 +3,7 @@ from flags import Flags
 import matplotlib.pyplot as plt
 
 def main():
-    # Contains input, output, and channel
+    # Contains input, output, and source
     argument_flags = Flags()
 
     # Create waveform from input

@@ -13,6 +13,18 @@ class Flags():
 
         # Parse each argument
         for index, arg in enumerate(self.args):
+            if arg == "-help":
+                sys.stdout.write(
+    '''
+    [Help] 
+    Run the main script siren.py with the following flags:
+        -input  :: followed by your input .wav audio file.
+        -output :: followed by your output directory.
+        -source :: followed by each desired isolated track, from the list: [vocals, bass, drums, brass, synth, drums]\n
+    An example call to this program that seeks to isolate the drums and synth from a stem would be:
+    python3 siren.py -input mixed.wav -output isolated_sources/ -source drums synth\n\n''')
+                sys.exit(0)
+
             if arg == "-input":
                 if self.args[index+1].endswith(".wav"):
                     self.input = self.args[index+1]
@@ -32,6 +44,7 @@ class Flags():
                     else:
                         raise TypeError("Invalid source argument. Please select from the list:\n - bass\n - guitar\n - vocals\n - drums\n - synth\n - brass")
 
+        # Ensure all necessary flags were passed in
         if self.input == None:
             raise TypeError("Invalid input argument. Use '-input input.wav")
         if self.output == None:
