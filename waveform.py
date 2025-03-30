@@ -1,14 +1,14 @@
 import struct
 import numpy as np
-import matplotlib.pyplot as plt
 import sys
+from decompose import Decomposer
 
 class Waveform():
     '''
     Open a .wav audio file and read binary information to extract data.
     .wav formatted files are comprised of 3 main data blocks:
         - RIFF Block: (File type information)
-            - 'RIFF'               (4 Bytes)
+            - 'RIFF'              (4 Bytes)
             - File Size           (4 Bytes)
             - 'WAVE'              (4 Bytes)
         - fmt Block: (Song-encoding information)
@@ -23,24 +23,20 @@ class Waveform():
             - 'data'              (4 Bytes)
             - Data Size           (4 bytes)
             - Amplitudes          (Data Size)
-
     '''
-
     def __init__(self, input_directory) -> None:
 
-        sys.stdout.write(f"[Debug] =::::= Reading file - {input_directory}\n")
+        sys.stdout.write(f"[Info] =::::= Reading file - {input_directory}\n")
 
         self.input_directory = input_directory
 
         with open(input_directory, 'rb') as file:
             # RIFF Block
-            self.riff_id = file.read(4)
-            self.file_size = struct.unpack('<I', file.read(4))[0] # Number of bytes in file, excluding 'RIFF' and file size itself (includes 'WAVE')
+            self.riff_id, self.file_size = self.jump_to(b'RIFF', file)
             self.wave_id = file.read(4)
 
             # fmt Block
-            self.fmt_id = file.read(4)
-            self.fmt_size = struct.unpack('<I', file.read(4))[0]
+            self.fmt_id, self.fmt_size = self.jump_to(b'fmt ', file)
             self.audio_format = struct.unpack('<H', file.read(2))[0]
             self.audio_channels = struct.unpack('<H', file.read(2))[0]
             self.sample_rate = struct.unpack('<I', file.read(4))[0]
@@ -49,30 +45,27 @@ class Waveform():
             self.bits_per_sample = struct.unpack('<H', file.read(2))[0]
             self.bytes_per_sample = self.bits_per_sample // 8
             if self.bits_per_sample not in [8, 16, 32]:
-                raise ValueError("Error: Only 8, 16, and 32 bit wav files are supported")
-
-            # Determine sample format and numpy dtype
-            if self.bits_per_sample == 8:
-                self.sample_format = '<B'
-            if self.bits_per_sample == 16:
-                self.sample_format = '<h'
-            elif self.bits_per_sample == 32:
-                self.sample_format = '<i'  
+                raise ValueError(f"Error: Bits Per Sample of {self.bits_per_sample} not supported. Only 8, 16, and 32 bit wav files are supported")
 
             # Data Block
-            self.data_size = self.find_data_block_size(file)
+            self.data_id, self.data_size = self.jump_to(b'data', file)
             self.bit_rate = self.bits_per_sample * self.sample_rate
             self.num_samples = self.data_size // (self.bytes_per_sample * self.audio_channels)
 
             # Determine sample format and numpy dtype
             if self.bits_per_sample == 8:
+                self.sample_format = '<B'
                 self.amplitudes = np.empty((self.num_samples, self.audio_channels), dtype=np.uint8)
             if self.bits_per_sample == 16:
+                self.sample_format = '<h'
                 self.amplitudes = np.empty((self.num_samples, self.audio_channels), dtype=np.int16)
             elif self.bits_per_sample == 32:
+                self.sample_format = '<i'
                 self.amplitudes = np.empty((self.num_samples, self.audio_channels), dtype=np.int32)
 
             # Read raw data
+            sys.stdout.write("[DEBUG] ::::  Reading data block - Status: ")
+            sys.stdout.flush()
             raw_data = file.read(self.data_size)
 
             # Read from file data into each channel's amplitude array
@@ -81,52 +74,62 @@ class Waveform():
                     start = (sample_number * self.audio_channels + channel_number) * self.bytes_per_sample
                     sample = struct.unpack(self.sample_format, raw_data[start:start + self.bytes_per_sample])[0]
                     self.amplitudes[sample_number, channel_number] = sample
+            sys.stdout.write("Finished\n")
 
         # Report file information
-        sys.stdout.write(f"File information:\n")
-        sys.stdout.write(f"Sample Rate:        {self.sample_rate}\n")
-        sys.stdout.write(f"Bits Per Sample     {self.bits_per_sample}\n")
-        sys.stdout.write(f"Bit Rate            {self.bit_rate}\n")  
         data_size_mb = self.data_size / (1024 * 1024)
-        sys.stdout.write(f"Data size           {self.data_size} ({data_size_mb:.2f} mb)\n")
+        sys.stdout.write(f"[Info]  ::::  File information:\n")
+        sys.stdout.write(f"Sample Rate:        {self.sample_rate}\n")
+        sys.stdout.write(f"Bits Per Sample:    {self.bits_per_sample}\n")
+        sys.stdout.write(f"Bit Rate:           {self.bit_rate}\n")  
+        sys.stdout.write(f"Data size:          {self.data_size} ({data_size_mb:.2f} mb)\n")
         sys.stdout.write(f"Number of samples:  {len(self.amplitudes)}\n")
         sys.stdout.write(f"Audio Channels:     {self.audio_channels}\n\n")
 
-    def find_data_block_size(self, file) -> int:
+    def jump_to(self, block, file) -> tuple[bytes, int]:
         '''
-        Skip through a .wav file to locate the b'data' block id and return its size
+        Skip through a .wav file to locate a desired block
+        Returns the block id and correspoding block size
         ''' 
-        sys.stdout.write(f"[Debug] ::: Seeking data block size\n")
         SEEK_CUR = 1
-        FILESIZE_MAX = 4294967295
+        sys.stdout.write(f"[Debug] ::::  Seeking {block} block - Status: ")
+        sys.stdout.flush()
 
         while True:
             block_id = file.read(4)
+
+            # If invalid block_id read, or end of file
             if not block_id:
-                raise ValueError("End of file. Data block not found")
+                sys.stdout.write("Error\n")
+                raise ValueError("End of file. {block} block not found")
             
             # Read current block size
             block_size = struct.unpack('<I', file.read(4))[0]
 
-            if block_id == b'data':
-                self.data_id = block_id
-                if block_size == FILESIZE_MAX:
-                    raise ValueError("Error reading file.")
-                return block_size
+            # If target
+            if block_id == block:
+                sys.stdout.write("Found\n")
+                return block_id, block_size
+
             else:
                 # Skip to the end of the current block
                 file.seek(block_size, SEEK_CUR)
     
-    def split(self, output_directory, sources):
-       '''
-       For each desired source, write a new .wav file containing the isolated track
-       '''
-       sys.stdout.write("[Debug] =::::= Splitting track\n")
-       for source in sources:
-            
-            isolated_amplitudes = self.isolate(source)
+    def split(self, output_directory, sources) -> None:
+        '''
+        For each desired source, write a new .wav file containing the isolated track
+        '''
+        sys.stdout.write("[Info] =::::= Splitting track\n")
 
-            sys.stdout.write(f"[Debug] ::: Writing to file - {output_directory}{source}.wav\n")
+        # Create decomposer object
+        decomposer = Decomposer()
+              
+        for source in sources:
+            
+            self.isolated_amplitudes = decomposer.decompose(self.amplitudes, source)
+
+            sys.stdout.write(f"[Debug] ::::  Writing to file - {output_directory}{source}.wav - Status: ")
+            sys.stdout.flush()
             with open(f'{output_directory}{source}.wav', 'wb') as file:
                 # RIFF Block
                 file.write(b'RIFF')
@@ -148,19 +151,10 @@ class Waveform():
                 file.write(struct.pack('<I', self.data_size))
 
                 # Write isolated amplitudes
-                for frame in isolated_amplitudes:
+                for frame in self.isolated_amplitudes:
                     for sample in frame:
                         file.write(struct.pack(self.sample_format, int(sample)))
                 file.flush()
                 
                 # Report file confirmation
-                sys.stdout.write(f"File successfully saved as: {output_directory}{source}.wav\n")
-
-    def isolate(self, source) -> np.array:
-        '''
-        Isolate desired source from original amplitudes array
-        '''
-        sys.stdout.write(f"[Debug] ::: Isolating {source}\n")
-        
-        # TO-DO
-        return self.amplitudes
+                sys.stdout.write(f"Success\n")

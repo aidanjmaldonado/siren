@@ -4,7 +4,7 @@ import os
 class Flags():
     def __init__(self) -> None:
 
-        sys.stdout.write("[Debug] =::::= Parsing Flags\n")
+        sys.stdout.write("[Info] =::::= Parsing flags\n")
         self.input = None
         self.output = None
         self.source = []
@@ -12,14 +12,14 @@ class Flags():
         self.args = sys.argv[1:]
         if "-help" in self.args:
             sys.stdout.write(
-    '''
-    [Help] 
-    Run the main script siren.py with the following flags:
-        -input  :: followed by your input .wav audio file.
-        -output :: followed by your output directory.
-        -source :: followed by each desired isolated track, from the list: [vocals, bass, drums, brass, synth, drums]\n
-    An example call to this program that seeks to isolate the drums and synth from a stem would be:
-    python3 siren.py -input mixed.wav -output isolated_sources/ -source drums synth\n\n''')
+'''
+[Help] 
+Run the main script siren.py with the following flags:
+    -input  :: followed by your input .wav audio file.
+    -output :: followed by your output directory.
+    -source :: followed by each desired isolated track, from the list: [vocals, bass, drums, brass, synth, drums]\n
+An example call to this program that seeks to isolate the drums and synth from a stem would be:
+python3 siren.py -input mixed.wav -output isolated_sources/ -source drums synth\n\n''')
             sys.exit(0)
 
         # Parse each argument
@@ -53,6 +53,6 @@ class Flags():
             raise TypeError("Invalid source argument. Use '-source [instrument_i] (for all i)")
 
         # Report processed flags
-        sys.stdout.write(f"Sys - Input file:         {self.input}\n")
-        sys.stdout.write(f"Sys - Output directory:   {self.output}\n")
-        sys.stdout.write(f"Sys - Sampled sources:   {self.source}\n\n")
+        sys.stdout.write(f"Input file:         {self.input}\n")
+        sys.stdout.write(f"Output directory:   {self.output}\n")
+        sys.stdout.write(f"Sampled sources:    {self.source}\n\n")
