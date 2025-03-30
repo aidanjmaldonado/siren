@@ -8,12 +8,9 @@ class Flags():
         self.input = None
         self.output = None
         self.source = []
-        self.args = sys.argv[1:]
         self.valid_instruments = ['bass', 'guitar', 'vocals', 'drums', 'synth', 'brass']
-
-        # Parse each argument
-        for index, arg in enumerate(self.args):
-            if arg == "-help":
+        self.args = sys.argv[1:]
+        if "-help" in self.args:
                 sys.stdout.write(
     '''
     [Help] 
@@ -24,6 +21,9 @@ class Flags():
     An example call to this program that seeks to isolate the drums and synth from a stem would be:
     python3 siren.py -input mixed.wav -output isolated_sources/ -source drums synth\n\n''')
                 sys.exit(0)
+
+        # Parse each argument
+        for index, arg in enumerate(self.args):
 
             if arg == "-input":
                 if self.args[index+1].endswith(".wav"):
