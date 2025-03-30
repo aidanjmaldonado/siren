@@ -9,6 +9,9 @@ def main():
     # Create waveform from input
     waveform = Waveform(argument_flags.input)
 
+    # Split tracks and save output
+    waveform.split(argument_flags.output, argument_flags.source)
+
     # Test plot
     if waveform.audio_channels > 1:
         fig, axs = plt.subplots(waveform.audio_channels, 1, figsize=(10, 8))    

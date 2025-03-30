@@ -33,4 +33,4 @@ Performs all `.wav` file handling in terms of reading from and writing to.
 
 ### flags.py
 
-Handles all command-line flag parsing to assist with program interfacing
+Handles command-line flag parsing to assist with program interfacing.
